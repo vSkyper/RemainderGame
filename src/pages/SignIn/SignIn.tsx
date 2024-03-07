@@ -2,8 +2,8 @@ import { TextField } from '@mui/material';
 import { CssVarsProvider } from '@mui/material-next';
 import { Button } from '@mui/material-next';
 import { useAppContext } from 'providers';
-import { useRef, useState } from 'react';
-import { checkIfUserExists, joinToRoom } from 'store';
+import { useCallback, useRef, useState } from 'react';
+import { checkIfUserExists } from 'store';
 
 export default function SignIn() {
   const formRef = useRef<HTMLFormElement>(null);
@@ -15,31 +15,34 @@ export default function SignIn() {
     setNickname(event.target.value);
   };
 
-  const handleJoin = async () => {
-    try {
-      if (!formRef.current || !formRef.current.reportValidity()) return;
-      setIsUserExists(false);
+  const handleJoin = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      try {
+        event.preventDefault();
+        if (!formRef.current || !formRef.current.reportValidity()) return;
+        setIsUserExists(false);
 
-      const trimmedNickname = nickname.trim();
+        const trimmedNickname = nickname.trim();
 
-      const userExists = await checkIfUserExists(trimmedNickname);
-      if (userExists) {
-        setIsUserExists(true);
-        return;
+        const userExists = await checkIfUserExists(trimmedNickname);
+        if (userExists) {
+          setIsUserExists(true);
+          return;
+        }
+
+        setCurrentUser(trimmedNickname);
+      } catch (e) {
+        throw e;
       }
-
-      await joinToRoom(trimmedNickname);
-
-      setCurrentUser(trimmedNickname);
-    } catch (e) {
-      throw e;
-    }
-  };
+    },
+    [nickname, setCurrentUser]
+  );
 
   return (
     <form
       ref={formRef}
       className='flex flex-col gap-6 items-center justify-center w-full h-full'
+      onSubmit={handleJoin}
     >
       <p className='text-xl font-bold'>Sign in into game!</p>
       <TextField
@@ -50,7 +53,7 @@ export default function SignIn() {
         required
       />
       <CssVarsProvider>
-        <Button variant='filled' onClick={handleJoin}>
+        <Button variant='filled' type='submit'>
           Join game
         </Button>
       </CssVarsProvider>

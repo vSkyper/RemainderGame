@@ -1,5 +1,9 @@
+export interface Users {
+  [key: string]: User;
+}
+
 export interface User {
-  nickname: string;
   commitment: string;
+  randomValue: number;
   value: number;
 }

@@ -1,94 +1,70 @@
-import { CircularProgress, TextField } from '@mui/material';
-import { Button, CssVarsProvider } from '@mui/material-next';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { User } from 'interfaces/interfaces';
-import { sha256 } from 'js-sha256';
+import { Users } from 'interfaces/interfaces';
 import { useAppContext } from 'providers';
 import { useEffect, useState } from 'react';
-import { firesoreDb, submitCommitment } from 'store';
+import { UseJoinToGame, UseOnPageDestroy, UseSubscribeGameRoom } from './hooks';
+import { Card, Navbar, Profile } from './components';
 
 export default function Game() {
   const { currentUser } = useAppContext();
-  const [value, setValue] = useState<number>();
-  const [randomNumber, setRandomNumber] = useState<number>();
-  const [users, setUsers] = useState<User[]>([]);
+  const [usersFirestore, setUsersFirestore] = useState<string[]>([]);
+  const [usersRealtime, setUsersRealtime] = useState<Users>({});
+  const [isEveryoneSubmittedCommitment, setIsEveryoneSubmittedCommitment] =
+    useState<boolean>(false);
+  const [isEveryoneSubmittedValue, setIsEveryoneSubmittedValue] =
+    useState<boolean>(false);
+  const [drawnPlayer, setDrawnPlayer] = useState<string>();
 
   useEffect(() => {
-    const roomRef = doc(firesoreDb, 'game', 'room');
+    if (!isEveryoneSubmittedValue) return;
 
-    const unsubscribe = onSnapshot(roomRef, (roomSnapshot) => {
-      if (!roomSnapshot.exists()) return;
+    let sum: number = 0;
 
-      const users: User[] = roomSnapshot.data().users;
-
-      if (!users) return;
-
-      const filteredUsers = users.filter((user: User) => {
-        return user.nickname !== currentUser;
-      });
-
-      setUsers(filteredUsers);
+    Object.values(usersRealtime).forEach((user) => {
+      sum += user.value;
     });
 
-    return () => {
-      unsubscribe();
-    };
-  }, [currentUser]);
+    sum = sum % usersFirestore.length;
 
-  const handleValueChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setValue(event.target.valueAsNumber);
-  };
+    const drawnPlayer = usersFirestore[sum];
 
-  const handleSubmit = () => {
-    if (!currentUser || !value) return;
+    setDrawnPlayer(drawnPlayer);
+  }, [isEveryoneSubmittedValue, usersFirestore, usersRealtime]);
 
-    const randomNumber = Math.floor(Math.random() * 100000000000);
-    setRandomNumber(randomNumber);
-
-    const commitment = sha256(`${value}${randomNumber}`);
-
-    submitCommitment(currentUser, commitment);
-  };
+  UseOnPageDestroy({ currentUser });
+  UseJoinToGame({ currentUser });
+  UseSubscribeGameRoom({
+    currentUser,
+    setUsersFirestore,
+    setUsersRealtime,
+    setIsEveryoneSubmittedCommitment,
+    setIsEveryoneSubmittedValue,
+    setDrawnPlayer,
+  });
 
   return (
-    <div className='p-6 grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4'>
-      <div className='flex gap-6 flex-col p-5 w-72 h-60 items-center justify-between bg-zinc-900 rounded-3xl'>
-        <p className='font-bold'>{currentUser}</p>
-        {randomNumber ? (
-          <div className='w-full h-40 px-8 flex flex-col items-center justify-center'>
-            <p className='break-all'>{value}</p>
-          </div>
-        ) : (
-          <>
-            <TextField
-              label='Number'
-              onChange={handleValueChange}
-              type='number'
-              variant='standard'
+    <>
+      <Navbar
+        drawnPlayer={drawnPlayer}
+        isEveryoneSubmittedCommitment={isEveryoneSubmittedCommitment}
+        isEveryoneSubmittedValue={isEveryoneSubmittedValue}
+      />
+      <Profile
+        currentUser={currentUser}
+        isEveryoneSubmittedCommitment={isEveryoneSubmittedCommitment}
+      />
+      <div className='p-6 grid justify-center sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4'>
+        {usersFirestore.map((user: string) => {
+          if (user === currentUser) return;
+          return (
+            <Card
+              key={user}
+              user={user}
+              usersRealtime={usersRealtime}
+              isEveryoneSubmittedValue={isEveryoneSubmittedValue}
             />
-            <CssVarsProvider>
-              <Button variant='filled' onClick={handleSubmit}>
-                Submit
-              </Button>
-            </CssVarsProvider>
-          </>
-        )}
+          );
+        })}
       </div>
-      {users.map((user: User) => (
-        <div
-          className='flex gap-6 flex-col p-5 w-72 h-60 items-center justify-between bg-zinc-900 rounded-3xl'
-          key={user.nickname}
-        >
-          <p className='font-bold'>{user.nickname}</p>
-          <div className='w-full h-40 px-8 flex flex-col items-center justify-center'>
-            {user.commitment ? (
-              <p className='break-all'>{user.commitment}</p>
-            ) : (
-              <CircularProgress />
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
+    </>
   );
 }

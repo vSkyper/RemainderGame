@@ -5,7 +5,6 @@ import {
   getDoc,
   updateDoc,
 } from 'firebase/firestore';
-import { User } from 'interfaces/interfaces';
 import { firesoreDb } from 'store';
 
 export const checkIfUserExists = async (nickname: string) => {
@@ -16,56 +15,34 @@ export const checkIfUserExists = async (nickname: string) => {
 
     if (!roomSnapshot.exists()) return false;
 
-    const users: User[] = roomSnapshot.data().users;
+    const users: string[] = roomSnapshot.data().users;
 
     if (!users) return false;
 
-    return users.some((user: User) => user.nickname === nickname);
+    return users.includes(nickname);
   } catch (e) {
     throw e;
   }
 };
 
-export const joinToRoom = async (nickname: string) => {
+export const joinToGameFirestore = async (nickname: string) => {
   try {
     const roomRef = doc(firesoreDb, 'game', 'room');
 
     await updateDoc(roomRef, {
-      users: arrayUnion({
-        nickname,
-        commitment: '',
-        randomValue: 0,
-        value: 0,
-      }),
+      users: arrayUnion(nickname),
     });
   } catch (e) {
     throw e;
   }
 };
 
-export const submitCommitment = async (
-  nickname: string,
-  commitment: string
-) => {
+export const leaveGameFirestore = async (nickname: string) => {
   try {
     const roomRef = doc(firesoreDb, 'game', 'room');
 
     await updateDoc(roomRef, {
-      users: arrayRemove({
-        nickname,
-        commitment: '',
-        randomValue: 0,
-        value: 0,
-      }),
-    });
-
-    await updateDoc(roomRef, {
-      users: arrayUnion({
-        nickname,
-        commitment,
-        randomValue: 0,
-        value: 0,
-      }),
+      users: arrayRemove(nickname),
     });
   } catch (e) {
     throw e;
